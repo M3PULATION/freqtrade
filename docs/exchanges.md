@@ -523,6 +523,31 @@ If your account is required to use an operatorId, you can set it in the configur
 
 Bitvavo expects the `operatorId` to be an integer.
 
+## MEXC
+
+MEXC spot and USDT-M futures use the same exchange id, `mexc`. Futures trading in Freqtrade is isolated only.
+
+If `HTTPS_PROXY` or `https_proxy` is set in the environment, it is passed to CCXT as `httpsProxy` and `wsProxy`. Direct connections to `api.mexc.com` time out on some networks.
+
+```json
+"exchange": {
+    "name": "mexc",
+    "key": "your_exchange_key",
+    "secret": "your_exchange_secret"
+},
+"trading_mode": "futures",
+"margin_mode": "isolated"
+```
+
+On startup, when the futures account has no open positions, Freqtrade sets the position mode to one-way for the whole account. If a position is already open, the current mode is left unchanged. One-way mode is required: hedge mode is not supported.
+
+Futures orders are sent as isolated (`openType=1`) and always include the integer leverage. Setting leverage and margin mode uses the same endpoint, so both values are sent together.
+
+!!! Warning "Stoploss on exchange"
+    Futures stoploss orders are plan orders. MEXC only keeps them for up to 7 days (`executeCycle=2`), not until cancelled. A stop that is still open after that window must be replaced by the bot.
+
+Contract candle volume is reported in contracts. Futures kline and orderbook websockets are enabled (`wss://contract.mexc.com/edge`). The spot websocket at `wss://wbs-api.mexc.com/ws` is left disabled because the connection drops its keepalive. Mark price and funding-rate candles still use REST. Funding-rate history is returned one page at a time (100 rows) and the exchange ignores the `since` parameter, so long lookbacks can be incomplete.
+
 ## All exchanges
 
 Should you experience constant errors with Nonce (like `InvalidNonce`), it is best to regenerate the API keys. Resetting Nonce is difficult and it's usually easier to regenerate the API keys.

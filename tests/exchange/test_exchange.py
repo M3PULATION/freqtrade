@@ -6127,6 +6127,11 @@ def test_set_margin_mode(mocker, default_conf, margin_mode, caplog):
         ("binance", TradingMode.FUTURES, MarginMode.ISOLATED, False, False),
         ("gate", TradingMode.FUTURES, MarginMode.ISOLATED, False, False),
         ("okx", TradingMode.FUTURES, MarginMode.ISOLATED, False, False),
+        ("mexc", TradingMode.SPOT, None, False, False),
+        ("mexc", TradingMode.FUTURES, MarginMode.ISOLATED, False, False),
+        ("mexc", TradingMode.FUTURES, MarginMode.CROSS, False, True),
+        ("mexc", TradingMode.FUTURES, None, False, True),
+        ("mexc", TradingMode.FUTURES, None, True, False),
         # * Remove once implemented
         ("binance", TradingMode.MARGIN, MarginMode.CROSS, False, True),
         ("binance", TradingMode.FUTURES, MarginMode.CROSS, False, False),
@@ -6182,13 +6187,25 @@ def test_validate_trading_mode_and_margin_mode(
         ("kraken", "futures", {"options": {"defaultType": "swap"}}),
         ("kucoin", "futures", {"options": {"defaultType": "swap"}}),
         ("okx", "futures", {"options": {"defaultType": "swap"}}),
+        ("mexc", "spot", {"has": {"fetchCurrencies": False}}),
+        (
+            "mexc",
+            "futures",
+            {
+                "options": {"defaultType": "swap", "defaultSettle": "USDT"},
+                "has": {"fetchCurrencies": False},
+            },
+        ),
     ],
 )
 def test__ccxt_config(default_conf_usdt, mocker, exchange_name, trading_mode, ccxt_config):
     default_conf_usdt["trading_mode"] = trading_mode
     default_conf_usdt["margin_mode"] = "isolated"
     exchange = get_patched_exchange(mocker, default_conf_usdt, exchange=exchange_name)
-    assert exchange._ccxt_config == ccxt_config
+    got = exchange._ccxt_config
+    if exchange_name == "mexc":
+        got = {key: value for key, value in got.items() if key not in ("httpsProxy", "wsProxy")}
+    assert got == ccxt_config
 
 
 @pytest.mark.parametrize(
@@ -7191,6 +7208,7 @@ def test_get_max_leverage_futures(default_conf, mocker, leverage_tiers):
         ("okx", {}, {"tdMode": "isolated", "posSide": "net"}),
         ("bybit", {}, {"position_idx": 0}),
         ("bitget", {}, {"marginMode": "isolated"}),
+        ("mexc", {}, {"marginMode": "isolated", "leverage": 3, "hedged": False}),
     ],
 )
 def test__get_params(mocker, default_conf, exchange_name, add_params_spot, add_params_futures):
@@ -7208,6 +7226,9 @@ def test__get_params(mocker, default_conf, exchange_name, add_params_spot, add_p
         "reduceOnly": True,
     }
     params_fut.update(add_params_futures)
+    if exchange_name == "mexc":
+        # Contract orders reject a raw timeInForce string; IOC is not forwarded.
+        params_fut.pop("timeInForce", None)
 
     assert (
         exchange._get_params(

@@ -765,6 +765,72 @@ EXCHANGES: dict[str, TestExchangeOnlineSetup] = {
             },
         ],
     },
+    "mexc": {
+        "pair": "BTC/USDT",
+        "stake_currency": "USDT",
+        "hasQuoteVolume": False,
+        "timeframe": "1h",
+        "candle_count": 500,
+        "futures": True,
+        "futures_pair": "BTC/USDT:USDT",
+        "candle_count_futures": 2000,
+        "hasQuoteVolumeFutures": False,
+        "leverage_tiers_public": True,
+        "leverage_in_spot_market": False,
+        "sample_order": [
+            {
+                "exchange_response": {
+                    "symbol": "BTCUSDT",
+                    "orderId": "123738410679123456",
+                    "price": "1.1",
+                    "origQty": "6.3",
+                    "type": "LIMIT",
+                    "side": "BUY",
+                    "status": "NEW",
+                    "transactTime": "1745852205223",
+                },
+                "pair": "BTC/USDT",
+                "expected": {
+                    "symbol": "BTC/USDT",
+                    "id": "123738410679123456",
+                    "timestamp": 1745852205223,
+                    "datetime": "2025-04-28T14:56:45.223Z",
+                    "price": 1.1,
+                    "amount": 6.3,
+                    "side": "buy",
+                    "type": "limit",
+                    "status": "open",
+                },
+            }
+        ],
+        "sample_order_futures": [
+            {
+                "exchange_response": {
+                    "orderId": "264995729269765120",
+                    "symbol": "BTC_USDT",
+                    "price": "2.2",
+                    "vol": "15",
+                    "side": "1",
+                    "dealAvgPrice": "0",
+                    "dealVol": "0",
+                    "state": "2",
+                    "createTime": "1648850305236",
+                },
+                "pair": "BTC/USDT:USDT",
+                "expected": {
+                    "symbol": "BTC/USDT:USDT",
+                    "id": "264995729269765120",
+                    "timestamp": 1648850305236,
+                    "datetime": "2022-04-01T21:58:25.236Z",
+                    "price": 2.2,
+                    "amount": 15.0,
+                    "filled": 0.0,
+                    "side": "buy",
+                    "status": "open",
+                },
+            }
+        ],
+    },
 }
 
 EXCHANGES_FUTURES = [exch for exch, params in EXCHANGES.items() if params.get("futures")]
