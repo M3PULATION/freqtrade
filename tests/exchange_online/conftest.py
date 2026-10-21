@@ -636,6 +636,19 @@ EXCHANGES: dict[str, TestExchangeOnlineSetup] = {
         # TODO: re-enable hyperliquid websocket tests
         "skip_ws_tests": True,
     },
+    "aster": {
+        "pair": "BTC/USDT",
+        "stake_currency": "USDT",
+        "hasQuoteVolume": True,
+        "timeframe": "1h",
+        "candle_count": 1500,
+        "futures": True,
+        "futures_pair": "BTC/USDT:USDT",
+        "candle_count_futures": 1500,
+        "hasQuoteVolumeFutures": True,
+        "leverage_tiers_public": False,
+        "leverage_in_spot_market": False,
+    },
     "krakenfutures": {
         "pair": "BTC/USD:USD",
         "stake_currency": "USD",

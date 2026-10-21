@@ -2970,7 +2970,10 @@ def test_api_exchanges(botclient):
         "comment_futures": ANY,
         "is_alias": False,
         "alias_for": None,
-        "trade_modes": [{"trading_mode": "spot", "margin_mode": ""}],
+        "trade_modes": [
+            {"trading_mode": "spot", "margin_mode": ""},
+            {"trading_mode": "futures", "margin_mode": "isolated"},
+        ],
     }
 
 

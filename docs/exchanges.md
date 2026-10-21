@@ -383,6 +383,36 @@ Futures trading on bitget is supported for isolated futures mode.
 
 On startup, freqtrade will set the position mode to "One-way Mode" for the whole (sub)account. This avoids making this call over and over again (slowing down bot operations), but means that manual changes to this setting may result in exceptions and errors.
 
+## Aster
+
+Aster is a decentralized exchange. Private requests are signed with an Ethereum private key, the same way Hyperliquid does. The futures API itself is closer to Binance USD-M: isolated margin, one-way positions, and stop orders.
+
+```json
+"exchange": {
+    "name": "aster",
+    "privateKey": "0x<64 hex characters>",
+    // ...
+}
+```
+
+Use a trading key, not the key of a wallet that holds unrelated funds. The wallet address is derived from this key. Freqtrade does not list Aster as an officially supported exchange.
+
+### Aster Futures
+
+Futures trading is supported for USDT-settled isolated perpetuals (`BTC/USDT:USDT`). Cross margin is not implemented.
+
+On startup of a live futures bot, freqtrade switches the account to one-way mode. That call is account-wide and is skipped in dry-run. It is refused while a hedge-mode position is still open, so flatten the account before the first live start.
+
+Live mode loads leverage brackets in one private call. Maximum leverage and the liquidation price come from the bracket that matches the position notional, including its cumulative maintenance amount. Dry-run and backtesting have no private key, so they fall back to `100 / requiredMarginPercent` and `maintMarginPercent` from `exchangeInfo`. That fallback is the deepest tier, so small positions are treated more conservatively than the exchange will.
+
+The account fee is not the schedule baked into CCXT. `fetchTradingFee` for this futures account returned maker `0` and taker `0.0004`. Set `"fee": 0.0004` for dry-run and backtesting. Live fills still use the fee reported on the trade.
+
+Stoploss on exchange supports both limit and market stops. Trigger price type `last` maps to `CONTRACT_PRICE` and `mark` maps to `MARK_PRICE`.
+
+Candle history is capped at 1500 candles. Funding history is paginated at 1000 rows and the default funding interval used for calculations is 8 hours. Websocket candles and order books are enabled.
+
+If the host needs an HTTPS proxy, set `https_proxy`. The Aster class forwards it to ccxt for REST and websockets.
+
 ## Hyperliquid
 
 !!! Tip "Stoploss on Exchange"
