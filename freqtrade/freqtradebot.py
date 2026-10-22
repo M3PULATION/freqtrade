@@ -1341,8 +1341,8 @@ class FreqtradeBot(LoggingMixin):
                     side=trade_side,
                     entry_tag=entry_tag,
                 )
-            # Cap leverage between 1.0 and max_leverage.
-            leverage = min(max(leverage, 1.0), max_leverage)
+            # Cap leverage between 1.0 and max_leverage, then apply exchange precision.
+            leverage = self.exchange.normalize_leverage(min(max(leverage, 1.0), max_leverage))
         else:
             # Changing leverage currently not possible
             leverage = trade.leverage if trade else 1.0

@@ -72,6 +72,7 @@ class FtHas(TypedDict, total=False):
     funding_fee_candle_limit: int
     open_interest_candle_limit: int
     floor_leverage: bool
+    leverage_requires_integer: bool
     uses_leverage_tiers: bool
     needs_trading_fees: bool
     # True if the balance "total" reported for the stake currency is account equity

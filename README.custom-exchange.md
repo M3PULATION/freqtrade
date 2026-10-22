@@ -26,7 +26,7 @@
 sitdownkevin/freqtrade:custom-exchange
 ```
 
-同一次构建还有按提交打的标签 `sitdownkevin/freqtrade:6ead7675`。
+每次构建同时使用提交 SHA 的前 8 位作为固定标签，例如 `sitdownkevin/freqtrade:<commit-sha>`，便于核对版本和回滚。
 
 ## 从上游更新
 
@@ -41,8 +41,12 @@ git merge upstream/develop
 
 - `docs/exchanges.md`
 - `freqtrade/exchange/__init__.py`
+- `freqtrade/exchange/exchange.py`、`freqtrade/exchange/exchange_types.py`：整数杠杆规范化接口。
+- `freqtrade/freqtradebot.py`、`freqtrade/optimize/backtesting.py`：在仓位计算前应用杠杆规范化。
 - `tests/exchange/test_exchange.py`
 - `tests/exchange_online/conftest.py`
 - `tests/rpc/test_rpc_apiserver.py`
 
-只属于本分支的新文件是 `freqtrade/exchange/aster.py`、`freqtrade/exchange/mexc.py`，以及对应的 `tests/exchange/test_aster.py`、`tests/exchange/test_mexc.py`、`tests/exchange_online/test_mexc_live_orders.py`。
+只属于本分支的新文件是 `freqtrade/exchange/aster.py`、`freqtrade/exchange/aster_ws.py`、`freqtrade/exchange/mexc.py`，以及对应的 `tests/exchange/test_aster.py`、`tests/exchange/test_aster_ws.py`、`tests/test_leverage_normalization.py`、`tests/exchange/test_mexc.py`、`tests/exchange_online/test_mexc_live_orders.py`。
+
+升级 CCXT 后，重新运行 Aster 订阅、退订和重连测试。`aster_ws.py` 兼容层已验证 CCXT 4.5.88/4.5.89；上游修复对应行为后，应评估移除兼容代码。

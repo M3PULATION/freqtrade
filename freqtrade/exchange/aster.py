@@ -6,12 +6,14 @@ import os
 import ccxt
 
 from freqtrade.constants import BuySell
-from freqtrade.enums import MarginMode, PriceType, TradingMode
+from freqtrade.enums import CandleType, MarginMode, PriceType, TradingMode
 from freqtrade.exceptions import DDosProtection, OperationalException, TemporaryError
 from freqtrade.exchange import Exchange
+from freqtrade.exchange.aster_ws import AsterWs
 from freqtrade.exchange.common import retrier
-from freqtrade.exchange.exchange_types import FtHas, Tickers
+from freqtrade.exchange.exchange_types import FtHas, OHLCVResponse, Ticker, Tickers
 from freqtrade.misc import deep_merge_dicts
+from freqtrade.util import dt_ts
 
 
 logger = logging.getLogger(__name__)
@@ -39,6 +41,8 @@ class Aster(Exchange):
         "stoploss_on_exchange": True,
         "stoploss_order_types": {"limit": "limit", "market": "market"},
         "stoploss_blocks_assets": False,
+        "stop_price_prop": "triggerPrice",
+        "leverage_requires_integer": True,
         "stop_price_type_field": "workingType",
         "stop_price_type_value_mapping": {
             PriceType.LAST: "CONTRACT_PRICE",
@@ -57,11 +61,13 @@ class Aster(Exchange):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self._coerce_reduce_only(self._api)
+        if self._ws_async is not None:
+            AsterWs(self._ws_async, self._ft_has["ws_orderbook_depth"])
 
     @property
     def _ccxt_config(self) -> dict:
         # ccxt Aster defaults to spot and turns a priced spot market order into quoteOrderQty.
-        config: dict = {"options": {"createOrder": {"quoteOrderQty": False}}}
+        config: dict = {"options": {"createOrder": {"quoteOrderQty": False}, "builderFee": False}}
         proxy = os.environ.get("https_proxy") or os.environ.get("HTTPS_PROXY")
         if proxy:
             config["httpsProxy"] = proxy
@@ -85,6 +91,52 @@ class Aster(Exchange):
             bidsasks = self.fetch_bids_asks(symbols, cached=cached)
             tickers = deep_merge_dicts(bidsasks, tickers, allow_null_overrides=False)
         return tickers
+
+    def fetch_ticker(self, pair: str) -> Ticker:
+        ticker = super().fetch_ticker(pair)
+        if self.trading_mode == TradingMode.FUTURES:
+            book_ticker = self.fetch_bids_asks([pair]).get(pair, {})
+            ticker = deep_merge_dicts(book_ticker, ticker, allow_null_overrides=False)
+        return ticker
+
+    async def _async_get_historic_ohlcv(
+        self,
+        pair: str,
+        timeframe: str,
+        since_ms: int,
+        candle_type: CandleType,
+        raise_: bool = False,
+        until_ms: int | None = None,
+    ) -> OHLCVResponse:
+        if candle_type != CandleType.FUNDING_RATE:
+            return await super()._async_get_historic_ohlcv(
+                pair, timeframe, since_ms, candle_type, raise_, until_ms
+            )
+        # Funding intervals vary by market and can change. Advance by the last
+        # returned timestamp instead of assuming every page spans 1000 * 8 hours.
+        end = until_ms if until_ms is not None else dt_ts()
+        cursor = since_ms
+        rows: dict[int, list] = {}
+        while cursor < end:
+            try:
+                _, _, _, page, _ = await self._async_get_candle_history(
+                    pair, timeframe, candle_type, cursor
+                )
+            except Exception as exc:
+                if raise_:
+                    raise
+                logger.warning("Funding history for %s stopped at %s: %s", pair, cursor, exc)
+                break
+            if not page:
+                break
+            last = max(row[0] for row in page)
+            if last < cursor:
+                raise TemporaryError(
+                    f"Aster funding history did not advance for {pair} at {cursor}"
+                )
+            rows.update({row[0]: row for row in page if since_ms <= row[0] < end})
+            cursor = last + 1
+        return pair, timeframe, candle_type, sorted(rows.values()), False
 
     def _coerce_reduce_only(self, api) -> None:
         """Aster swap orders require reduceOnly as the string 'true' or 'false'."""
@@ -127,9 +179,7 @@ class Aster(Exchange):
                     "Aster is in hedge mode and still has open positions. "
                     "Close them before starting the bot so it can switch to one-way mode."
                 )
-            self._log_exchange_response(
-                "set_position_mode", self._api.set_position_mode(False)
-            )
+            self._log_exchange_response("set_position_mode", self._api.set_position_mode(False))
         except ccxt.DDoSProtection as e:
             raise DDosProtection(e) from e
         except (ccxt.OperationFailed, ccxt.ExchangeError) as e:
@@ -200,7 +250,7 @@ class Aster(Exchange):
         if self.trading_mode != TradingMode.SPOT:
             # setLeverage rejects anything outside 1..125 and requires an integer.
             self.set_margin_mode(pair, self.margin_mode, accept_fail)
-            self._set_leverage(int(leverage), pair, accept_fail)
+            self._set_leverage(int(self.normalize_leverage(leverage)), pair, accept_fail)
 
     @retrier
     def load_leverage_tiers(self) -> dict[str, list[dict]]:

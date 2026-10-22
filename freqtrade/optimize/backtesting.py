@@ -1084,8 +1084,8 @@ class Backtesting:
                 if self.trading_mode != TradingMode.SPOT
                 else 1.0
             )
-            # Cap leverage between 1.0 and max_leverage.
-            leverage = min(max(leverage, 1.0), max_leverage)
+            # Cap leverage between 1.0 and max_leverage, then apply exchange precision.
+            leverage = self.exchange.normalize_leverage(min(max(leverage, 1.0), max_leverage))
 
         min_stake_amount = (
             self.exchange.get_min_pair_stake_amount(

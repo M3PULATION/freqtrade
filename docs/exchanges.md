@@ -403,13 +403,13 @@ Futures trading is supported for USDT-settled isolated perpetuals (`BTC/USDT:USD
 
 On startup of a live futures bot, freqtrade switches the account to one-way mode. That call is account-wide and is skipped in dry-run. It is refused while a hedge-mode position is still open, so flatten the account before the first live start.
 
-Live mode loads leverage brackets in one private call. Maximum leverage and the liquidation price come from the bracket that matches the position notional, including its cumulative maintenance amount. Dry-run and backtesting have no private key, so they fall back to `100 / requiredMarginPercent` and `maintMarginPercent` from `exchangeInfo`. That fallback is the deepest tier, so small positions are treated more conservatively than the exchange will.
+Live mode loads leverage brackets in one private call. Maximum leverage and the liquidation price come from the bracket that matches the position notional, including its cumulative maintenance amount. Dry-run and backtesting have no private key, so they fall back to `100 / requiredMarginPercent` and `maintMarginPercent` from `exchangeInfo`. That fallback is the deepest tier, so small positions are treated more conservatively than the exchange will. Aster requires integer leverage: strategy and force-entry values are rounded down before position sizing in both trading and backtesting (for example, `2.5` becomes `2`).
 
-The account fee is not the schedule baked into CCXT. `fetchTradingFee` for this futures account returned maker `0` and taker `0.0004`. Set `"fee": 0.0004` for dry-run and backtesting. Live fills still use the fee reported on the trade.
+The account fee is not the schedule baked into CCXT. `fetchTradingFee` for this futures account returned maker `0` and taker `0.0004`. Set `"fee": 0.0004` for dry-run and backtesting. Live fills still use the fee reported on the trade. CCXT's optional builder authorization and order fee are disabled by default (`options.builderFee=false`). Enabling `exchange.ccxt_config.options.builderFee` explicitly opts into CCXT's builder authorization and fee behavior; this does not revoke any authorization previously granted.
 
 Stoploss on exchange supports both limit and market stops. Trigger price type `last` maps to `CONTRACT_PRICE` and `mark` maps to `MARK_PRICE`.
 
-Candle history is capped at 1500 candles. Funding history is paginated at 1000 rows and the default funding interval used for calculations is 8 hours. Websocket candles and order books are enabled.
+Candle history is capped at 1500 candles. Funding history is paginated at 1000 rows using the last returned timestamp, so markets with shorter or changing funding intervals are not skipped. The funding data timeframe remains `8h` for storage compatibility; actual settlement timestamps are preserved. Websocket candles and order books are enabled. Unsubscription waits for the exchange acknowledgement and allows resubscription; if the outcome is uncertain, the connection is discarded so subscriptions can be rebuilt. Both orderbook pricing and ticker pricing are supported for futures.
 
 If the host needs an HTTPS proxy, set `https_proxy`. The Aster class forwards it to ccxt for REST and websockets.
 

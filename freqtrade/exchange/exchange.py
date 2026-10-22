@@ -169,6 +169,7 @@ class Exchange(LoggingMixin):
         "mark_ohlcv_timeframe": "1h",
         "funding_fee_timeframe": "1h",
         "ccxt_futures_name": "swap",
+        "leverage_requires_integer": False,
         "needs_trading_fees": False,  # use fetch_trading_fees to cache fees
         "balance_includes_unrealized_pnl": False,  # ccxt "total" is plain wallet balance
         "order_props_in_contracts": ["amount", "filled", "remaining"],
@@ -4022,6 +4023,15 @@ class Exchange(LoggingMixin):
             if leverage <= tier["maxLeverage"]:
                 return tier["maxNotional"]
         return None
+
+    def normalize_leverage(self, leverage: float) -> float:
+        """
+        Normalize a leverage already capped to the exchange's supported range.
+        Called before sizing a new position so orders and trades use the same leverage.
+        """
+        if self._ft_has["leverage_requires_integer"]:
+            return float(int(leverage))
+        return leverage
 
     @retrier
     def _set_leverage(
